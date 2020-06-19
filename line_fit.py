@@ -14,6 +14,10 @@ class Line(object):
     def score(self, pointcloud: sensor_msgs.point_cloud2):
         """we want score to reflect the summation of the likelihood that a wall occupying this space would trigger a recorded point for each point in the pointcloud.
         This method is intended to reflect the amount of points that are explained by a wall occupying this position. """
+        #FIXME: this is really slow. Possible optimizations:
+        #use numpy operations instead of python
+        #use a spatial datastructure to store the points instead 
+        #   of a flat array (what kind/how would it be faster)
         total = 0
         for point in pointcloud:
             chance = self._likelihood_of_being_cause_of_point(point)
@@ -28,8 +32,7 @@ class Line(object):
         # to determine the likelihood the wall described by this Line object would cause the 
         # passed point. 
         #FIXME: I don't know how to do the math for this. I'm going to take shortest cartesian 
-        # distance then run it through a gaussian 
-        params = self.params
+        # distance then run it through a gaussian \
         x0, y0 = point[0], point[1]
         x1, y1 = (self.params["x"], self.params["y"])
         x2, y2 = (self.params["x"] + np.cos(self.params["theta"]), self.params["y"] + np.sin(self.params["theta"]))
@@ -155,6 +158,13 @@ class LinePopulation(object):
         set to be accurate wrt the passed pointcloud"""
         for i in range(len(self.population)):
             self.population[i].score(pointcloud)
+
+    def append(self, line):
+        self.population.append(line)
+
+    def sort(self):
+        #sort the lines in descending order of score 
+        self.population.sort(key=lambda x: -x.most_recent_score)
             
 
 class JayaPopulation(LinePopulation, object):
