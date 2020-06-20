@@ -1,21 +1,21 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# The velodyne LIDAR data has some neat properties we can exploit for a custom feature detection algorithm:
+# To add a new cell, type '# %%'
+# To add a new markdown cell, type '# %% [markdown]'
+# %% [markdown]
+# The velodyne LIDAR data has some neat properties I am hoping to exploit with this algorithm. The dat is:
 # 
-# 1. It's all indoors, so points are in straight lines where the walls are. 
-# 2. It's a sparse array of samples, not a dense matrix
+# 1. All indoors, so points are in straight lines where the walls are. 
+# 2. A sparse array of samples, not a dense matrix, so using traditional computer vision techniques often requires rendering the sparse array onto a dense matrix of pixel data. 
 # 
 # First, lets load a single frame of data.
 
-# In[31]:
-
-
+# %%
 import rosbag, sensor_msgs.point_cloud2
 import numpy as np
 from matplotlib import pyplot as plt 
 from copy import deepcopy
 from random import choice as rand_choice
+from random import randint
+from random import choices as rand_choices
 from scipy.stats import norm
 
 bag = rosbag.Bag('data_2020-06-10-10-24-18.bag')
@@ -25,11 +25,7 @@ allpoints = list(sensor_msgs.point_cloud2.read_points(msg))
 len(allpoints)
 
 
-# 30,000 points is way too many points, and each point is five dimensional. Let's take a 2D subset. 
-
-# In[2]:
-
-
+# %%
 def decimate(iterable, p=.1):
     new = []
     for i in iterable:
@@ -43,18 +39,18 @@ def take_x_and_y(points):
     #we only want x and y so the other dimensions don't
     #interfere with math functions, and so we need less memory
     #for storage
-    return [[p[0], p[1]] for p in points]
+    return [[p[0], p[1]] for p in points if p[2] > .03]
 
 points = decimate(allpoints, .3)
 points = take_x_and_y(points)
 len(points)
 
-
+# %% [markdown]
 # Let's see what this looks like. 
+# %% [markdown]
+# There are too many outliers. Let's enforce that every point has some neighbors. 
 
-# In[3]:
-
-
+# %%
 plt.rcParams['figure.figsize'] = [20, 10]
 def graph(points, s=.4):
     x = [p[0] for p in points]
@@ -63,26 +59,8 @@ def graph(points, s=.4):
     
 graph(points)
 
-points = decimate(allpoints, .3)
-points = take_x_and_y(points)
-len(points)
 
-
-# Let's see what this looks like. 
-
-# In[3]:
-
-
-plt.rcParams['figure.figsize'] = [20, 10]
-    
-graph(points)
-
-
-# There are too many outliers. Let's enforce that every point has some neighbors. 
-
-# In[4]:
-
-
+# %%
 from scipy import spatial 
 import time
 
@@ -102,26 +80,20 @@ def min_density_selection(points, n_neighbors, distance):
     return np.array(selected_points)
 
 
-# In[5]:
-
-
+# %%
 st = time.time()
 dense_points = min_density_selection(points, 4, .05)
 time.time() - st
 
 
-# In[6]:
-
-
+# %%
 graph(points)
 graph(dense_points)
 
-
+# %% [markdown]
 # We got rid of outliers, but we also got rid of a lot of the walls. Let's try something else. 
 
-# In[7]:
-
-
+# %%
 from sklearn.cluster import MiniBatchKMeans
 def cluster_centroids(x, n_clusters):
     """fit kmeans clusters then return the average of the clusters"""
@@ -141,41 +113,31 @@ def cluster_centroids(x, n_clusters):
     return np.array(list(groups.values()))
 
 
-# In[8]:
-
-
+# %%
 st = time.time()
 centroid_points = cluster_centroids(points, 300)
 time.time() - st
 
 
-# In[9]:
-
-
+# %%
 st = time.time()
 dense_centroid_points = cluster_centroids(dense_points, 300)
 time.time() - st
 
 
-# In[10]:
-
-
+# %%
 #graph(points)
 graph(centroid_points, 3)
 
 
-# In[11]:
-
-
+# %%
 #graph(points)
 graph(dense_centroid_points, 3)
 
-
+# %% [markdown]
 # This method is fast, but seems to have trouble with noise and outliers. Running the density scan beforehand improves it, but the density scan is currently very slow. That should be possible to dramatically speed up though, since running kmeans to convergence only takes .3 seconds. What if we run the cluster centroid function, then the density scan? 
 
-# In[12]:
-
-
+# %%
 st = time.time()
 test_points = cluster_centroids(points, 1000)
 good_points = min_density_selection(test_points, 3, .5)
@@ -184,16 +146,14 @@ print(time.time() - st)
 #graph(test_points, 3)
 graph(good_points, 3)
 
-
+# %% [markdown]
 # This looks pretty good, but I did tune every parameter to give the best possible results. I have no idea how robust this method is for other frames. 
 # 
 # Next, we can use our much smaller collection of points to try and fit lines where the walls would be. Lines are represented by an (x, y, theta) triplet. A line representing a wall will pass through at least one point. This means that, to fit a wall, we can select a point from our pointcloud then run a one dimensional search to find the best theta. 
 # 
 # First, let's make a line object with some useful methods.
 
-# In[67]:
-
-
+# %%
 def line_point_distance(line, point):
     """Calculate minimum euclidean distance from line to point"""
     #I got the formula for finding how close a point is to a line from wikipedia. It requires
@@ -211,16 +171,38 @@ class Line(object):
         self.params = {"x": x, "y": y, "theta": theta}
         self.distance_scale = distance_scale
  
-    def score(self, pointcloud):
-        """we want score to reflect the summation of the likelihood that a wall occupying this space would 
+    def score(self, points, method=1, chute_resolution=.1, chute_radius=.05, pointcloud=None):
+        """Method is one of:
+        
+        0: we want score to reflect the summation of the likelihood that a wall occupying this space would 
         trigger a recorded point for each point in the pointcloud.
         This method is intended to reflect the amount of points that are explained by a wall occupying this 
-        position. """
+        position. 
+        
+        1: check how long the starting point can slide along the line before a point is not within 
+        localdistance, checked every chute_resolution increment. Returns the amount of increments 
+        traveled in both directions.  """
         total = 0
-        for point in pointcloud:
-            chance = self._likelihood_of_being_cause_of_point(point)
-            total += chance 
-        self.most_recent_score = total
+
+        if method == 0:
+            for point in points:
+                chance = self._likelihood_of_being_cause_of_point(point)
+                total += chance 
+            self.most_recent_score = total
+
+        if method == 1:
+            for sign in [1, -1]:
+                steps = 0
+                while True:
+                    steps += 1
+                    x = np.cos(self.params["theta"] * steps * sign) + self.params["x"]
+                    y = np.sin(self.params["theta"] * steps * sign) + self.params["y"]
+                    n_neighbors = len(pointcloud.query_ball_point([[x, y]], chute_radius)[0])
+                    if n_neighbors:
+                        total += 1
+                    else:
+                        break 
+
         return total 
 
     def _likelihood_of_being_cause_of_point(self, point):
@@ -247,12 +229,10 @@ class Line(object):
         difference_b = thetas[0] - thetas[1]
         return min(difference_a, difference_b)
 
-
+# %% [markdown]
 # When we fit a line, we care more about the local structure than the global structure. We need a class to associate a line with a pointcloud subset. 
 
-# In[27]:
-
-
+# %%
 class LineCaster(object):
     def __init__(self, pointcloud, centerpoint=None):
         """A linecaster holds a pointcloud, line centerpoint, 
@@ -305,10 +285,10 @@ class LineCaster(object):
         self.score = best_found_score
         self.line.params["theta"] = best_found_theta
 
-
+# %% [markdown]
 # Now, we want to:
 # 
-# 1. Init a population of n (40?) linecasters, each optimized for their local pointcloud
+# 1. Init a population of n linecasters, each optimized for their local pointcloud
 # 2. Remove duplicate lines 
 # 3. Not every line represents a wall, since not all the points do and our fitting algorithm isn't perfect. We want a subset of lines that we are most certain are walls. We don't want points to increase the scores of more than one line. So, we need to select lines and remove explained-by-the-wall points from the pointcloud in an order that maximizes: 
 #     - total score? 
@@ -316,9 +296,7 @@ class LineCaster(object):
 #     - minimize unexplained points? 
 #     
 
-# In[65]:
-
-
+# %%
 class Pointcloud(object):
     def __init__(self, points, local_neighborhood_radius):
         self.points = points 
@@ -401,25 +379,130 @@ class LCPopulation(object):
             lc.line.score(pointcloud.points)
 
 
-# In[68]:
+# %%
+lf = LCPopulation(good_points, 250, .07)
 
 
-lf = LCPopulation(good_points, 100)
-best_lines = lf.calc_best_order(30)
-
+# %%
+# best_lines = lf.calc_best_order(10) #this is really really slow but its easy to fix
+best_lines = []
 def graph_line(line, plt):
+    """Graph a line with a width and color dependent on its score"""
     point_a_x = line.params["x"] + (np.cos(line.params["theta"]) * 10)
     point_a_y = line.params["y"] + (np.sin(line.params["theta"]) * 10)
     
     point_b_x = line.params["x"] + (np.cos(line.params["theta"]) * -10)
     point_b_y = line.params["y"] + (np.sin(line.params["theta"]) * -10)
 
-    plt.plot([point_a_x, point_b_x], [point_a_y, point_b_y], color="black", linewidth=line.most_recent_score/25)
+    plt.plot([point_a_x, point_b_x], [point_a_y, point_b_y], color=str(255/line.most_recent_score/10), linewidth=line.most_recent_score/100)
 
 plt.clf()
 for lc in best_lines:
     graph_line(lc.line, plt)
     
+graph(good_points, 5)
+# plt.show()
+
+# %% [markdown]
+# It looks like the simple heuristic of selecting the most explanatory line every time is too greedy. It is preoccupied with the corners to the point it ignores the walls. I think a better metaheuristic selection should fix this. Reducing the tolerance for how close a point needs to be to a line should also reduce the bias towards corners, but would require a more accurate optimization method for the angle of the lines. Perhaps a repeated point assignment followed by ODR regression refitting, kind of like how kmeans works. 
+# 
+# I am planning on implementing a genetic algorithm for the line selection metaheuristic. Scoring lines can be drastically sped up by precomputing the distance matrix between lines and points. 
+
+# %%
+class GASelector(object):
+    def __init__(self, linecasters, pointcloud, popsize=100, lines_in_sol=10, local_neighborhood_radius=.04):
+        """Set up a genetic algorithm metaheuristic"""
+        #one solution is an ordered list of indexes of lines
+        self.solutions = []
+        self.linecasters = linecasters 
+        self.pointcloud = pointcloud 
+        self.local_neighborhood_radius = local_neighborhood_radius
+
+        self._make_line_point_distance_matrix()
+
+        #init some randomly selected groups of solutions
+        for _ in range(popsize):
+            line_indexes = [randint(0, len(self.linecasters.linecasters)-1) for _ in range(lines_in_sol)]
+            self.solutions.append(self._make_solution(line_indexes))
+
+    def _make_line_point_distance_matrix(self):
+        """Calculate the distance between every line and every point"""
+        #first, compute the distance matrix between each line and each point 
+        matrix = []
+        for lc in self.linecasters.linecasters:
+            distances = [line_point_distance(lc.line, point) for point in self.pointcloud.points]
+            matrix.append(distances)
+        self.matrix = matrix
+
+
+    def _make_solution(self, line_indexes):
+        """associate an ordered collection of lines with a score"""
+        return {
+            "lines": line_indexes,
+            "score": self._score(line_indexes)
+        }
+
+    def _score(self, line_indexes):
+        """determine the score of a list of line indexes"""
+        explained = np.zeros(len(self.pointcloud.points))
+        score = 0
+        for line_index in line_indexes:
+            line = self.linecasters.linecasters[line_index].line
+            for (point_index, point_index_explained) in enumerate(explained):
+                #check that this point hasn't already been explained
+                if point_index_explained:
+                    continue 
+
+                #check if this point is being explained 
+                if self.matrix[line_index][point_index] < self.local_neighborhood_radius:
+                    explained[point_index] = 1 #disable this point
+                    score += 1
+        return score 
+                
+                
+    def run_iter(self):
+        """loop through every solution, select another solution, generate a child, 
+        then replace the lowest performing solution's parent if the child outperforms it.  """
+        for (solution_index, solution) in enumerate(self.solutions):
+            #select another solution that is not this one 
+            other_solution_index = solution_index 
+            while other_solution_index == solution_index:
+                other_solution_index = randint(0, len(self.solutions) - 1)
+            
+            #combine lines from both parents 
+            gene_pool = list(set(self.solutions[other_solution_index]["lines"]) | set(solution["lines"]))
+            #generate child 
+            child = rand_choices(gene_pool, k=len(solution["lines"]))
+            if len(child) < len(solution):
+                continue
+            #mutate gene 
+            child[4] = max(child[4] - 1, 0)
+            child = self._make_solution(child)
+
+            #compare child to parents
+            if child["score"] > solution["score"]:
+                self.solutions[solution_index] = child
+            elif child["score"] > self.solutions[other_solution_index]["score"]:
+                self.solutions[other_solution_index] = child 
+
+    def best_solution(self):
+        return max(self.solutions, key=lambda x: x["score"])
+
+
+# %%
+gas = GASelector(lf, Pointcloud(good_points, .07), popsize=30, lines_in_sol=25)
+for x in range(60):
+    gas.run_iter()
+best_solution = gas.best_solution()
 graph(good_points)
+for line in best_solution["lines"]:
+    lf.linecasters[line].line.score(good_points)
+    pc = Pointcloud(good_points, .06)
+    explained, good_points = pc.segment_over_line(lf.linecasters[line].line)
+    graph_line(lf.linecasters[line].line, plt)
 plt.show()
+best_solution
+
+# %%
+
 
