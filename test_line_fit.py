@@ -1,4 +1,3 @@
-import line_fit 
 from numpy import pi
 import numpy as np
 
