@@ -280,6 +280,6 @@ while True:
     polylines, lines = wg.make_network(1, 10)
     graphs.graph_pointcloud(pointcloud)
     graphs.graph_polylines(polylines, pointcloud)
-    # graphs.graph_slope_intercept_lines(network, pointcloud)
+    # graphs.graph_slope_intercept_lines(lines, pointcloud)
     graphs.show_graphs()
 
