@@ -4,6 +4,7 @@ import graphs
 import itertools 
 import numpy as np
 from scipy import odr
+from copy import deepcopy
 
 def odr_linear_definition(B, x):
     #FIXME: is a line represented this way capable of 
@@ -18,21 +19,41 @@ class ODR_Fit(object):
         self.points = list_of_points 
         model = odr.Model(odr_linear_definition)
 
+        #extract coordinates from list of points
         x = [pointcloud.points[p][0] for p in list_of_points]
         y = [pointcloud.points[p][1] for p in list_of_points]
+
+        #calculate standard errors along dimensions or something
         wd = 1/(np.std(x)**2) #FIXME: I have no idea what this is 
         we = 1/(np.std(y)**2) #or if I did it right
+
+        #fit ODR
         data = odr.Data(x, y, wd=wd, we=we)
         self.odr = odr.ODR(data, model, beta0=[1., 1.])
         self.odr.run()
 
-    def apply_bounds(self):
-        """We do not want lines to go on forever. We can find the 
-        closest point on the line to the endpoints of the list of 
-        points, and use those as bounds, but that math is dependent
-        on the representation of the line, and I think the slope 
-        intercept form currently being used is not the way to go. """
-        pass
+        params = self.odr.output.beta 
+
+        #apply bounds for start and end point
+        bounds = []
+        for index in [-1, 0]:
+            m, b = params 
+            p_x, p_y = pointcloud.points[self.points[index]]
+            bounds.append(self._find_closest_input_val(m, b, p_x, p_y))
+        bounds.sort()
+
+        #save the params in nice formats
+        params = {"m": params[0], "b": params[1], "low": bounds[0], "high": bounds[1]}
+        self.params = params
+        self.start_point = [params["low"], params["low"] * params["m"] + params["b"]]
+        self.end_point = [params["high"], params["high"] * params["m"] + params["b"]]
+
+
+
+    def _find_closest_input_val(self, m, b, p_x, p_y):
+        #found by taking the derivative of the distance 
+        #function wrt x then solving for x
+        return (-b*m+m*p_y+p_x)/(m**2+1)
 
 
 
@@ -40,7 +61,7 @@ class WallGrower(object):
     def __init__(self, pointcloud):
         self.pointcloud = pointcloud
 
-    def make_network(self, max_distance, max_second_ratio):
+    def make_network(self, max_distance, corner_threshold=2.5, min_length=4):
         """replace the pointcloud with a collection of lines. 
         The lines are generated like so: 
 
@@ -53,7 +74,7 @@ class WallGrower(object):
                     draw a line between the point and the second neighbor """
         
         #we will store each points two closest neighbors, if they exist
-        lines = {}
+        linesegments = {}
 
         #extract line segments
         #FIXME: the kdtree query method used in the get_nearest_neighbors call 
@@ -63,21 +84,21 @@ class WallGrower(object):
         # on the remaining points
         all_distances, all_indexes = self.pointcloud.get_nearest_neighbors(3)
         for i in range(len(all_distances)):
-            lines[i] = set()
+            linesegments[i] = set()
             distances = all_distances[i]
             indexes = all_indexes[i]
             #each location we are querying is a point 
             #in the pointcloud, so the closest neighbor 
             #is always itself. So we start at 1:
             if distances[1] < max_distance:
-                lines[i].add(indexes[1])
-                if distances[2] < max_distance and distances[2] < distances[1] * max_second_ratio:
-                    lines[i].add(indexes[2])
+                linesegments[i].add(indexes[1])
+                if distances[2] < max_distance:
+                    linesegments[i].add(indexes[2])
 
         #lines is a collection of vectors between neighboring points
         #these vectors make connected subgroups we want to be able to 
         #look at individually
-        subgroups = self._extract_subgroups(lines)
+        subgroups = self._extract_subgroups(deepcopy(linesegments))
 
         #subgroups are typically mostly linear, because of the nature 
         #of the data and the preprocessing we did, but they aren't perfect. 
@@ -85,7 +106,7 @@ class WallGrower(object):
         polylines = [self._arrange_into_line(sg) for sg in subgroups]
 
         #split up polylines at the corners
-        polylines = self._split_up_polylines(polylines)
+        polylines = self._split_up_polylines(polylines, corner_threshold=corner_threshold)
 
         #remove polylines that are empty 
         #FIXME: there might be a bug causing small subgroups to 
@@ -96,12 +117,26 @@ class WallGrower(object):
         #endpoints with parameters determined by ODR fitting
         lines = [self._fit_bounded_odr(pl) for pl in polylines]
 
-        #combine lines that are within a threshold tolerance
-
-        #combine lines connected with a corner into a closed polyline
+        #remove small lines 
+        lines = [l for l in lines if len(l.points) >= min_length]
 
         #return the detected walls
-        return polylines, lines
+        return linesegments, lines
+
+    def _check_similarity(self, a_line, b_line, euc_tolerance=.1, polar_tolerance=.1):
+        """determine if two lines can be combined"""
+        #first check if slopes lie within boundary 
+        theta0 = np.arctan(a_line.params["m"])
+        theta1 = np.arctan(b_line.params["m"])
+        diff = np.abs(theta0 - theta1)
+        if diff > polar_tolerance:
+            return False
+
+        #check that the start and end points are close enough
+        for order in [[a_line, b_line], [b_line, a_line]]:
+            if self._euclidean_distance(order[0].end_point[0], order[0].end_point[1], order[0].start_point[0], order[0].start_point[1]) < euc_tolerance:
+                return True
+        return False
 
     def _fit_bounded_odr(self, list_of_points):
         """first, use every point to fit
@@ -109,8 +144,7 @@ class WallGrower(object):
         Then, find the points on the odr_line that are closest
         to the start and endpoints of the list_of_points. """
         odr =  ODR_Fit(list_of_points, self.pointcloud)
-        return odr.odr.output.beta
-
+        return odr
 
     def _arrange_into_line(self, linesegments):
         """produce the longest polyline possible from 
@@ -262,24 +296,38 @@ class WallGrower(object):
         return completed_lines
 
     def _distance_between_points(self, index_one, index_two):
-        return np.sqrt((self.pointcloud.points[index_one][0] - self.pointcloud.points[index_two][0])**2 
-            + (self.pointcloud.points[index_one][1] - self.pointcloud.points[index_two][1])**2)
+        return self._euclidean_distance(
+            self.pointcloud.points[index_one][0], 
+            self.pointcloud.points[index_one][1],
+            self.pointcloud.points[index_two][0], 
+            self.pointcloud.points[index_two][1])
+
+    def _euclidean_distance(self, x0, y0, x1, y1):
+        return np.sqrt((x0-x1)**2 + (y0-y1)**2)
 
 
 data_loader = DataLoader("data_2020-06-10-10-24-18.bag")
 
 while True:
     pointcloud = Pointcloud(data_loader.load_next_frame())
-    # pointcloud.take_percentage(.5)
-    pointcloud.remove_floor()
+    
+    pointcloud.remove_floor(floor=.05)
+    graphs.graph_pointcloud(pointcloud, .5, c="yellow", title="points above floor")
+
     pointcloud.take_xy()
 
-    pointcloud.take_centroids(300)
+    pointcloud.take_percentage(.5)
+    graphs.graph_pointcloud(pointcloud, s=10, c="yellow", title="randomly undersampled")
+
+    pointcloud.biased_undersample(percentile=.1, radius=.6)
+    graphs.graph_pointcloud(pointcloud, s=20, c="orange", title="biased undersampled")
+
+    pointcloud.take_centroids(400, exact=True)
+    graphs.graph_pointcloud(pointcloud, s=40, c="red", title="kmeans centroid replaced")
     
     wg = WallGrower(pointcloud)
-    polylines, lines = wg.make_network(1, 10)
-    graphs.graph_pointcloud(pointcloud)
-    graphs.graph_polylines(polylines, pointcloud)
-    # graphs.graph_slope_intercept_lines(lines, pointcloud)
-    graphs.show_graphs()
+    linesegments, lines = wg.make_network(max_distance=.4, corner_threshold=2.7, min_length=3)
+    graphs.graph_line_segments(linesegments, pointcloud, colors=["gray"])
+    graphs.graph_slope_intercept_lines(lines, pointcloud, colors=["black"], l=3)
+    graphs.show_graphs(title="Located Walls of 10/22 First LIDAR Scan")
 
