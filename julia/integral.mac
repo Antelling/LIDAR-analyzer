@@ -1,0 +1,5 @@
+1/(s+(sqrt((v-x)^2+((m*v+b)-y)^2)^2));
+
+integrate(
+  sqrt((1/(s+(sqrt((v-x)^2+((m*v+b)-y)^2)^2)))^2 + (1/(s+(sqrt((v-x)^2+((m*v+b)-y)^2)^2)) * m)^2),
+  v, l, h);
