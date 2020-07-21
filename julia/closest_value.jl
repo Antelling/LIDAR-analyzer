@@ -68,58 +68,119 @@ function NAG(
      best_found[1]
  end
 
-function graph(params, points)
-    m, b, l, h = params
-    score = total_score(m, b, l, h, points)
+ function ES(p, scorer; range=.1, n_children=5, max_fails=5)
+     """Evolutionary Strategy optimizer
+     perturb each dimension in p by (standard gaussian * range)
+     to generate a new child solution. Take the best child then repeat."""
+     fails = 0
+     best_found_solution = [p, scorer(p)]
+     while fails <= max_fails
+         best_found_child = [[], 0]
+         for _ in 1:n_children
+             new_child = [d + randn() * range/(fails+1) for d in p]
+             new_score = scorer(new_child)
+             if new_score > best_found_child[2]
+                 best_found_child = [new_child, new_score]
+             end
+         end
+         if best_found_child[2] > best_found_solution[2]
+             best_found_solution = best_found_child
+             fails = 0
+         else
+             fails += 1
+         end
+     end
+     best_found_solution[1]
+ end
+
+function graph_point_ray(p, points, score)
+    x1, y1, theta, len = p
+    x2 = x1 + cos(theta)*len
+    y2 = y1 + sin(theta)*len
+
+    m = (y2 - y1)/(x2 - x1)
+    b = y1 - m*x1
+    l = min(x1, x2)
+    h = max(x1, x2)
 
     x = points[:, 1]
     y = points[:, 2]
-    scatter(x, y, title = "Score: $(score)")
+    scatter!(x, y, title = "Score: $(score)")
 
 
     plot!([l, h], [m*l+b, m*h+b])
 end
 
-using PyCall
-push!(pyimport("sys")."path", pwd());
-pointcloud = pyimport("pointcloud")
-dataloader = pyimport("data_handler")
-dl = dataloader.DataLoader("data_2020-06-10-10-24-18.bag")
-pc = pointcloud.Pointcloud(dl.load_next_frame())
-pc.remove_floor(floor = 0.05)
-pc.take_xy()
-pc.take_percentage(0.5)
-pc.biased_undersample(percentile = 0.1, radius = 0.6)
-pc.take_centroids(400, exact = true)
-rpoints = pc.points
-
-total_score(1, 0, 0, 5.7, rpoints)
-
 function opt(p, scorer)
+    optimized = NAG(copy(p), scorer,
+        learning_rate=.00001,
+        max_steps=99999)
     optimized = NAG(copy(p), scorer,
         learning_rate=.000001,
         max_steps=99999)
-    optimized = NAG(optimized, scorer,
-        learning_rate=.0001,
+    optimized = NAG(copy(p), scorer,
+        learning_rate=.0000001,
         max_steps=99999)
     optimized
 end
 
-scorer(p) = total_score(p[1], p[2], p[3], p[4], rpoints,
-    smoother=.1,
-    score_radius=5,
-    length_scale=.02,
-    length_exponent=1,
-    distance_exponent=1.2,
-    sum_exponent=1)
+function slope_intercept_bounds_scorer(p)
+    """interpret the four parameters as m, b, min, max"""
+    m, b, l, h = p
+    total_score(m, b, l, h, points,
+        smoother=1,
+        score_radius=5,
+        length_scale=.1,
+        length_exponent=.5,
+        distance_exponent=1.2,
+        sum_exponent=2)
+end
 
-initial1 = [.02, 1.9, 8, 15]
-initial2 = [.02, -1.5, 6, 11]
-initial3 = [-.02, -1.5, 1, 8]
-graph(initial3, rpoints)
-optimized = opt(initial3, scorer)
-graph(optimized, rpoints)
-elongated_optimized = copy(optimized)
-elongated_optimized[4] += 1
-graph(elongated_optimized, rpoints)
-elongated_optimized = opt(elongated_optimized, scorer)
+function point_ray_scorer(p)
+    """interpret the four parameters as x, y, theta, length"""
+    x1, y1, theta, len = p
+    x2 = x1 + cos(theta)*len
+    y2 = y1 + sin(theta)*len
+
+    m = (y2 - y1)/(x2 - x1)
+    b = y1 - m*x1
+    l = min(x1, x2)
+    h = max(x1, x2)
+
+    total_score(m, b, l, h, points,
+        smoother=1,
+        score_radius=5,
+        length_scale=.1,
+        length_exponent=.5,
+        distance_exponent=1.2,
+        sum_exponent=2)
+end
+
+function two_point_scorer(p)
+    """interpret the four parameters as x1, y1, x2, y2"""
+    x1, y1, x2, y2 = p
+    m = (y2 - y1)/(x2 - x1)
+    b = y1 - m*x1
+    l = x1
+    h = x2
+    total_score(m, b, l, h, points,
+        smoother=1,
+        score_radius=5,
+        length_scale=.1,
+        length_exponent=.5,
+        distance_exponent=1.2,
+        sum_exponent=2)
+end
+
+include("./point_loader.jl")
+points = point_loader.single_line()
+point_loader.graph(points)
+
+initial = [5, -.2, 20, 5]
+graph_point_ray(initial, points, point_ray_scorer(initial))
+
+optimized = ES(copy(initial), point_ray_scorer, range=.1, n_children=50000, max_fails=30)
+graph(optimized, points, scorer(optimized))
+
+hand_opt = [5.9, -.38, 15.2, -.195]
+graph(hand_opt, points, scorer(hand_opt))
