@@ -1,0 +1,324 @@
+[
+    {
+        "gf": {
+            "gf_name": "threshold_distance",
+            "gf_scaler": 0.883894919833732
+        },
+        "oz": {
+            "opt_name": "NAGD",
+            "opt_friction": 0.07422043525451794,
+            "opt_learning_rate": 3.1806002305801085e-5
+        },
+        "score": 2.28156448158827
+    },
+    {
+        "gf": {
+            "gf_smoother": 1.2422955053292712,
+            "gf_name": "inverse_exponent",
+            "gf_exponent": 1.3084974675473093,
+            "gf_scaler": 0.7813937684740706
+        },
+        "oz": {
+            "opt_name": "NAGD",
+            "opt_friction": 0.9927677065807862,
+            "opt_learning_rate": 0.005597401063814334
+        },
+        "score": 2.4241070300947354
+    },
+    {
+        "gf": {
+            "gf_name": "gaussian_pdf",
+            "gf_std": 1.451793838926723
+        },
+        "oz": {
+            "opt_name": "EvolutionaryStrategies",
+            "opt_reduction_rate": 2.4697092393702924,
+            "opt_range": 0.3802743374355302,
+            "opt_n_children": 78434
+        },
+        "score": 2.4624913202857885
+    },
+    {
+        "gf": {
+            "gf_name": "threshold_distance",
+            "gf_scaler": 0.26647115681289035
+        },
+        "oz": {
+            "opt_name": "EvolutionaryStrategies",
+            "opt_reduction_rate": 1.1249780171674661,
+            "opt_range": 0.054822840059334334,
+            "opt_n_children": 82165
+        },
+        "score": 2.4803875444745924
+    },
+    {
+        "gf": {
+            "gf_name": "threshold_distance",
+            "gf_scaler": 1.0054187511427561
+        },
+        "oz": {
+            "opt_name": "EvolutionaryStrategies",
+            "opt_reduction_rate": 0.6812695147305601,
+            "opt_range": 0.06758065284461594,
+            "opt_n_children": 27
+        },
+        "score": 2.5379263533464664
+    },
+    {
+        "gf": {
+            "gf_smoother": 1.0742387784704865,
+            "gf_name": "inverse_exponent",
+            "gf_exponent": 1.9941461781280934,
+            "gf_scaler": 0.7549648090694012
+        },
+        "oz": {
+            "opt_name": "GD",
+            "opt_friction": 0.006674503833301593,
+            "opt_learning_rate": 0.0005998631891688852
+        },
+        "score": 2.568724257618366
+    },
+    {
+        "gf": {
+            "gf_name": "gaussian_pdf",
+            "gf_std": 1.5128566349060493
+        },
+        "oz": {
+            "opt_name": "NAGD",
+            "opt_friction": 0.9905821393305109,
+            "opt_learning_rate": 0.00039922687074677853
+        },
+        "score": 2.5950283093282347
+    },
+    {
+        "gf": {
+            "gf_name": "gaussian_pdf",
+            "gf_std": 1.6074810837612734
+        },
+        "oz": {
+            "opt_name": "NAGD",
+            "opt_friction": 0.9908442214192533,
+            "opt_learning_rate": 0.008935516770172444
+        },
+        "score": 2.6045973252246872
+    },
+    {
+        "gf": {
+            "gf_name": "threshold_distance",
+            "gf_scaler": 0.3577103983907115
+        },
+        "oz": {
+            "opt_name": "EvolutionaryStrategies",
+            "opt_reduction_rate": 0.3537447666003324,
+            "opt_range": 0.08434086580838321,
+            "opt_n_children": 79908
+        },
+        "score": 2.6133077612614164
+    },
+    {
+        "gf": {
+            "gf_name": "gaussian_pdf",
+            "gf_std": 0.8384063275654774
+        },
+        "oz": {
+            "opt_name": "EvolutionaryStrategies",
+            "opt_reduction_rate": 4.56355142584056,
+            "opt_range": 0.032738760414530166,
+            "opt_n_children": 61790
+        },
+        "score": 2.6350408541684764
+    },
+    {
+        "gf": {
+            "gf_name": "gaussian_pdf",
+            "gf_std": 1.8138066193117588
+        },
+        "oz": {
+            "opt_name": "EvolutionaryStrategies",
+            "opt_reduction_rate": 0.422287227722677,
+            "opt_range": 0.5245677670303461,
+            "opt_n_children": 96
+        },
+        "score": 2.637130319195267
+    },
+    {
+        "gf": {
+            "gf_name": "gaussian_pdf",
+            "gf_std": 0.9850007233020088
+        },
+        "oz": {
+            "opt_name": "EvolutionaryStrategies",
+            "opt_reduction_rate": 0.25149972667346754,
+            "opt_range": 0.4906083749682637,
+            "opt_n_children": 3660
+        },
+        "score": 2.643060225053063
+    },
+    {
+        "gf": {
+            "gf_name": "threshold_distance",
+            "gf_scaler": 0.9959295885517747
+        },
+        "oz": {
+            "opt_name": "GD",
+            "opt_friction": 0.9612245876426666,
+            "opt_learning_rate": 3.6343557648000016e-5
+        },
+        "score": 2.661874113644509
+    },
+    {
+        "gf": {
+            "gf_smoother": 0.29212012345430516,
+            "gf_name": "inverse_exponent",
+            "gf_exponent": 3.6596666711832917,
+            "gf_scaler": 0.5839364764777821
+        },
+        "oz": {
+            "opt_name": "EvolutionaryStrategies",
+            "opt_reduction_rate": 0.0028076450600531544,
+            "opt_range": 0.43078700371419143,
+            "opt_n_children": 4
+        },
+        "score": 2.786724352299067
+    },
+    {
+        "gf": {
+            "gf_name": "gaussian_pdf",
+            "gf_std": 1.9681619717806869
+        },
+        "oz": {
+            "opt_name": "EvolutionaryStrategies",
+            "opt_reduction_rate": 2.7953019983297898,
+            "opt_range": 0.1961474859841621,
+            "opt_n_children": 629
+        },
+        "score": 2.891390411551371
+    },
+    {
+        "gf": {
+            "gf_smoother": 0.5461617554486646,
+            "gf_name": "inverse_exponent",
+            "gf_exponent": 2.883650884508026,
+            "gf_scaler": 0.7985546067391054
+        },
+        "oz": {
+            "opt_name": "NAGD",
+            "opt_friction": 0.9948467027583711,
+            "opt_learning_rate": 0.0008336960118794237
+        },
+        "score": 2.964900305154594
+    },
+    {
+        "gf": {
+            "gf_name": "threshold_distance",
+            "gf_scaler": 1.534203994754011
+        },
+        "oz": {
+            "opt_name": "GD",
+            "opt_friction": 0.32678982170707704,
+            "opt_learning_rate": 0.07682615953911297
+        },
+        "score": 3.030957471074259
+    },
+    {
+        "gf": {
+            "gf_name": "gaussian_pdf",
+            "gf_std": 1.6761252752562346
+        },
+        "oz": {
+            "opt_name": "GD",
+            "opt_friction": 0.9915734691602421,
+            "opt_learning_rate": 0.002112761249967012
+        },
+        "score": 3.104818646570505
+    },
+    {
+        "gf": {
+            "gf_name": "gaussian_pdf",
+            "gf_std": 1.5120826698608996
+        },
+        "oz": {
+            "opt_name": "GD",
+            "opt_friction": 0.9943226266738131,
+            "opt_learning_rate": 0.008556308896505802
+        },
+        "score": 3.130937060322114
+    },
+    {
+        "gf": {
+            "gf_name": "gaussian_pdf",
+            "gf_std": 0.11802647404235689
+        },
+        "oz": {
+            "opt_name": "NAGD",
+            "opt_friction": 0.9946958456890995,
+            "opt_learning_rate": 0.0004417423189791695
+        },
+        "score": 3.1742901174954716
+    },
+    {
+        "gf": {
+            "gf_name": "gaussian_pdf",
+            "gf_std": 1.0268713959478815
+        },
+        "oz": {
+            "opt_name": "GD",
+            "opt_friction": 0.9471984539013091,
+            "opt_learning_rate": 0.009711585069021936
+        },
+        "score": 3.5804560839915567
+    },
+    {
+        "gf": {
+            "gf_name": "gaussian_pdf",
+            "gf_std": 0.4300652943210883
+        },
+        "oz": {
+            "opt_name": "NAGD",
+            "opt_friction": 0.9455820378040806,
+            "opt_learning_rate": 0.0266323569794353
+        },
+        "score": 3.6445988081603216
+    },
+    {
+        "gf": {
+            "gf_smoother": 0.19440575518571615,
+            "gf_name": "inverse_exponent",
+            "gf_exponent": 1.8591949056878372,
+            "gf_scaler": 5.107224081140473
+        },
+        "oz": {
+            "opt_name": "NAGD",
+            "opt_friction": 0.9653669855063812,
+            "opt_learning_rate": 0.9699807184661617
+        },
+        "score": 3.8813849872854345
+    },
+    {
+        "gf": {
+            "gf_name": "gaussian_pdf",
+            "gf_std": 1.6052327250937455
+        },
+        "oz": {
+            "opt_name": "GD",
+            "opt_friction": 0.9958883327575713,
+            "opt_learning_rate": 0.0005221158589381762
+        },
+        "score": 3.9869454888194293
+    },
+    {
+        "gf": {
+            "gf_smoother": 0.6878815618915755,
+            "gf_name": "inverse_exponent",
+            "gf_exponent": 4.7129018039614525,
+            "gf_scaler": 0.2192285340507918
+        },
+        "oz": {
+            "opt_name": "EvolutionaryStrategies",
+            "opt_reduction_rate": 2.7021171110649247,
+            "opt_range": 0.16159590790262623,
+            "opt_n_children": 8083
+        },
+        "score": 6.297016880754524
+    }
+]
